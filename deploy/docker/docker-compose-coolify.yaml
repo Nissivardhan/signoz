@@ -52,19 +52,6 @@ services:
       timeout: 5s
       retries: 3
 
-  otel-collector:
-    image: signoz/signoz-otel-collector:${OTELCOL_TAG:-v0.129.6}
-    container_name: signoz-otel-collector
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-      signoz:
-        condition: service_healthy
-    environment:
-      - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
-      - LOW_CARDINAL_EXCEPTION_GROUPING=false
-      - CLICKHOUSE_DSN=tcp://clickhouse:9000
-
 volumes:
   clickhouse:
     name: signoz-clickhouse
