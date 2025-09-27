@@ -1,59 +1,13 @@
 version: "3.8"
 
 services:
-  init-clickhouse:
-    image: clickhouse/clickhouse-server:25.5.6
-    container_name: signoz-init-clickhouse
-    command:
-      - bash
-      - -c
-      - |
-        version="v0.0.1"
-        node_os=$$(uname -s | tr '[:upper:]' '[:lower:]')
-        node_arch=$$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
-        echo "Fetching histogram-binary for $${node_os}/$${node_arch}"
-        cd /tmp
-        wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz"
-        tar -xvzf histogram-quantile.tar.gz
-        mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
-    restart: on-failure
-    volumes:
-      - clickhouse-user-scripts:/var/lib/clickhouse/user_scripts/
-
-  zookeeper-1:
-    image: signoz/zookeeper:3.7.1
-    container_name: signoz-zookeeper-1
-    user: root
-    volumes:
-      - zookeeper-1:/bitnami/zookeeper
-    environment:
-      - ZOO_SERVER_ID=1
-      - ALLOW_ANONYMOUS_LOGIN=yes
-      - ZOO_AUTOPURGE_INTERVAL=1
-      - ZOO_ENABLE_PROMETHEUS_METRICS=yes
-      - ZOO_PROMETHEUS_METRICS_PORT_NUMBER=9141
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
   clickhouse:
     image: clickhouse/clickhouse-server:25.5.6
     container_name: signoz-clickhouse
-    tty: true
-    depends_on:
-      init-clickhouse:
-        condition: service_completed_successfully
-      zookeeper-1:
-        condition: service_healthy
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
     volumes:
       - clickhouse:/var/lib/clickhouse/
-      - clickhouse-user-scripts:/var/lib/clickhouse/user_scripts/
     healthcheck:
       test:
         - CMD
@@ -70,18 +24,6 @@ services:
         soft: 262144
         hard: 262144
 
-  schema-migrator-sync:
-    image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
-    container_name: schema-migrator-sync
-    command:
-      - sync
-      - --dsn=tcp://clickhouse:9000
-      - --up=
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-    restart: on-failure
-
   signoz:
     image: signoz/signoz:${VERSION:-v0.96.1}
     container_name: signoz
@@ -90,8 +32,6 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
-      schema-migrator-sync:
-        condition: service_completed_successfully
     volumes:
       - sqlite:/var/lib/signoz/
     environment:
@@ -120,8 +60,6 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
-      schema-migrator-sync:
-        condition: service_completed_successfully
       signoz:
         condition: service_healthy
     environment:
@@ -131,26 +69,8 @@ services:
       - "${OTEL_GRPC_PORT:-4317}:4317"
       - "${OTEL_HTTP_PORT:-4318}:4318"
 
-  schema-migrator-async:
-    image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
-    container_name: schema-migrator-async
-    command:
-      - async
-      - --dsn=tcp://clickhouse:9000
-      - --up=
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-      schema-migrator-sync:
-        condition: service_completed_successfully
-    restart: on-failure
-
 volumes:
   clickhouse:
     name: signoz-clickhouse
   sqlite:
     name: signoz-sqlite
-  zookeeper-1:
-    name: signoz-zookeeper-1
-  clickhouse-user-scripts:
-    name: signoz-clickhouse-user-scripts
