@@ -63,6 +63,7 @@ services:
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
+      - CLICKHOUSE_DSN=tcp://clickhouse:9000
 
 volumes:
   clickhouse:
