@@ -107,6 +107,7 @@ services:
     command:
       - sync
       - --dsn=tcp://clickhouse:9000
+      - --dev
       - --up=
     depends_on:
       clickhouse:
@@ -159,6 +160,7 @@ services:
     command:
       - async
       - --dsn=tcp://clickhouse:9000
+      - --dev
       - --up=
     restart: on-failure
     environment:
