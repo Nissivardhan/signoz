@@ -119,6 +119,7 @@ services:
       - TELEMETRY_ENABLED=true
       - DEPLOYMENT_TYPE=docker-standalone-amd
       - DOT_METRICS_ENABLED=true
+      - SIGNOZ_JWT_SECRET=${SIGNOZ_JWT_SECRET}
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -139,6 +140,9 @@ services:
   otel-collector:
     image: signoz/signoz-otel-collector:${OTELCOL_TAG:-v0.129.6}
     container_name: signoz-otel-collector
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/otel-collector-config.yaml
+    command: ["--config=/etc/otelcol-contrib/otel-collector-config.yaml"]
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
