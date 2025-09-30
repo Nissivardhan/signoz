@@ -68,6 +68,29 @@ services:
       nofile:
         soft: 262144
         hard: 262144
+    command: >
+      bash -c "
+      mkdir -p /etc/clickhouse-server/config.d &&
+      echo '<clickhouse>
+        <remote_servers>
+          <cluster>
+            <shard>
+              <replica>
+                <host>clickhouse</host>
+                <port>9000</port>
+              </replica>
+            </shard>
+          </cluster>
+        </remote_servers>
+        <zookeeper>
+          <node>
+            <host>zookeeper-1</host>
+            <port>2181</port>
+          </node>
+        </zookeeper>
+      </clickhouse>' > /etc/clickhouse-server/config.d/cluster.xml &&
+      /entrypoint.sh
+      "
     restart: unless-stopped
 
   schema-migrator-sync:
