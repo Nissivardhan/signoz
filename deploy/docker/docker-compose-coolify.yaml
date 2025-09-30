@@ -120,6 +120,10 @@ services:
       - DEPLOYMENT_TYPE=docker-standalone-amd
       - DOT_METRICS_ENABLED=true
       - SIGNOZ_JWT_SECRET=${SIGNOZ_JWT_SECRET}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.signoz.rule=Host(`signoz.shortcastle.com`)"
+      - "traefik.http.services.signoz.loadbalancer.server.port=8080"
     depends_on:
       clickhouse:
         condition: service_healthy
