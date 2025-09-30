@@ -99,26 +99,6 @@ services:
     container_name: signoz-clickhouse
     volumes:
       - clickhouse:/var/lib/clickhouse/
-    environment:
-      - CLICKHOUSE_SKIP_USER_SETUP=1
-      - CLICKHOUSE_DB=default
-
-  schema-migrator-sync:
-    <<: *common
-    image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
-    container_name: schema-migrator-sync
-    command:
-      - sync
-      - --dsn=tcp://clickhouse:9000/default
-      - --dev
-      - --replication=false
-      - --up=
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-    restart: on-failure
-    environment:
-      - CLICKHOUSE_DSN=tcp://clickhouse:9000/default
 
   signoz:
     <<: *db-depend
@@ -157,19 +137,28 @@ services:
       signoz:
         condition: service_healthy
 
+  schema-migrator-sync:
+    <<: *common
+    image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
+    container_name: schema-migrator-sync
+    command:
+      - sync
+      - --dsn=tcp://clickhouse:9000
+      - --up=
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: on-failure
+
   schema-migrator-async:
     <<: *db-depend
     image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
     container_name: schema-migrator-async
     command:
       - async
-      - --dsn=tcp://clickhouse:9000/default
-      - --dev
-      - --replication=false
+      - --dsn=tcp://clickhouse:9000
       - --up=
     restart: on-failure
-    environment:
-      - CLICKHOUSE_DSN=tcp://clickhouse:9000/default
 
 volumes:
   clickhouse:
