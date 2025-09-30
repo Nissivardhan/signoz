@@ -1,9 +1,5 @@
 version: "3.8"
 
-networks:
-  signoz-network:
-    driver: bridge
-
 services:
   init-clickhouse:
     image: clickhouse/clickhouse-server:25.5.6
@@ -21,8 +17,6 @@ services:
         tar -xvzf histogram-quantile.tar.gz
         mkdir -p /var/lib/clickhouse/user_scripts/
         mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
-    networks:
-      - signoz-network
     restart: on-failure
 
   zookeeper-1:
@@ -37,8 +31,6 @@ services:
       - ZOO_AUTOPURGE_INTERVAL=1
       - ZOO_ENABLE_PROMETHEUS_METRICS=yes
       - ZOO_PROMETHEUS_METRICS_PORT_NUMBER=9141
-    networks:
-      - signoz-network
     healthcheck:
       test:
         - CMD-SHELL
@@ -56,8 +48,6 @@ services:
       - clickhouse:/var/lib/clickhouse/
     environment:
       - CLICKHOUSE_SKIP_USER_SETUP=1
-    networks:
-      - signoz-network
     depends_on:
       init-clickhouse:
         condition: service_completed_successfully
@@ -110,8 +100,6 @@ services:
       - sync
       - --dsn=tcp://clickhouse:9000
       - --up=
-    networks:
-      - signoz-network
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -134,8 +122,6 @@ services:
       - DEPLOYMENT_TYPE=docker-standalone-amd
       - DOT_METRICS_ENABLED=true
       - SIGNOZ_JWT_SECRET=${SIGNOZ_JWT_SECRET}
-    networks:
-      - signoz-network
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -162,8 +148,6 @@ services:
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - LOW_CARDINAL_EXCEPTION_GROUPING=false
-    networks:
-      - signoz-network
     depends_on:
       signoz:
         condition: service_healthy
@@ -176,8 +160,6 @@ services:
       - async
       - --dsn=tcp://clickhouse:9000
       - --up=
-    networks:
-      - signoz-network
     depends_on:
       clickhouse:
         condition: service_healthy
