@@ -140,6 +140,9 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    networks:
+       - default
+       - coolify
 
   otel-collector:
     image: signoz/signoz-otel-collector:${OTELCOL_TAG:-v0.129.6}
@@ -176,3 +179,7 @@ volumes:
     name: signoz-sqlite
   zookeeper-1:
     name: signoz-zookeeper-1
+
+networks:
+  coolify:
+    external: true
