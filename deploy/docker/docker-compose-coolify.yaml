@@ -100,6 +100,21 @@ services:
     volumes:
       - clickhouse:/var/lib/clickhouse/
 
+  schema-migrator-sync:
+    <<: *common
+    image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
+    container_name: schema-migrator-sync
+    command:
+      - sync
+      - --dsn=tcp://clickhouse:9000
+      - --up=
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: on-failure
+    environment:
+      - CLICKHOUSE_DSN=tcp://clickhouse:9000
+
   signoz:
     <<: *db-depend
     image: signoz/signoz:${VERSION:-v0.96.1}
@@ -137,19 +152,6 @@ services:
       signoz:
         condition: service_healthy
 
-  schema-migrator-sync:
-    <<: *common
-    image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
-    container_name: schema-migrator-sync
-    command:
-      - sync
-      - --dsn=tcp://clickhouse:9000
-      - --up=
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-    restart: on-failure
-
   schema-migrator-async:
     <<: *db-depend
     image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
@@ -159,6 +161,8 @@ services:
       - --dsn=tcp://clickhouse:9000
       - --up=
     restart: on-failure
+    environment:
+      - CLICKHOUSE_DSN=tcp://clickhouse:9000
 
 volumes:
   clickhouse:
