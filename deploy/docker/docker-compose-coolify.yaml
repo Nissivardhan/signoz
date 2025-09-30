@@ -111,7 +111,7 @@ services:
       - sync
       - --dsn=tcp://clickhouse:9000/default
       - --dev
-      - --cluster-name=single_node
+      - --replication=false
       - --up=
     depends_on:
       clickhouse:
@@ -165,7 +165,7 @@ services:
       - async
       - --dsn=tcp://clickhouse:9000/default
       - --dev
-      - --cluster-name=single_node
+      - --replication=false
       - --up=
     restart: on-failure
     environment:
