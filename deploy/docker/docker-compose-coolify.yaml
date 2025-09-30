@@ -1,70 +1,7 @@
 version: "3.8"
 
-x-common: &common
-  restart: unless-stopped
-  logging:
-    options:
-      max-size: 50m
-      max-file: "3"
-
-x-clickhouse-defaults: &clickhouse-defaults
-  <<: *common
-  image: clickhouse/clickhouse-server:25.5.6
-  tty: true
-  labels:
-    signoz.io/scrape: "true"
-    signoz.io/port: "9363"
-    signoz.io/path: "/metrics"
-  depends_on:
-    init-clickhouse:
-      condition: service_completed_successfully
-    zookeeper-1:
-      condition: service_healthy
-  healthcheck:
-    test:
-      - CMD
-      - wget
-      - --spider
-      - -q
-      - 0.0.0.0:8123/ping
-    interval: 30s
-    timeout: 5s
-    retries: 3
-  ulimits:
-    nproc: 65535
-    nofile:
-      soft: 262144
-      hard: 262144
-  environment:
-    - CLICKHOUSE_SKIP_USER_SETUP=1
-
-x-zookeeper-defaults: &zookeeper-defaults
-  <<: *common
-  image: signoz/zookeeper:3.7.1
-  user: root
-  labels:
-    signoz.io/scrape: "true"
-    signoz.io/port: "9141"
-    signoz.io/path: "/metrics"
-  healthcheck:
-    test:
-      - CMD-SHELL
-      - curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null
-    interval: 30s
-    timeout: 5s
-    retries: 3
-
-x-db-depend: &db-depend
-  <<: *common
-  depends_on:
-    clickhouse:
-      condition: service_healthy
-    schema-migrator-sync:
-      condition: service_completed_successfully
-
 services:
   init-clickhouse:
-    <<: *common
     image: clickhouse/clickhouse-server:25.5.6
     container_name: signoz-init-clickhouse
     command:
@@ -83,8 +20,9 @@ services:
     restart: on-failure
 
   zookeeper-1:
-    <<: *zookeeper-defaults
+    image: signoz/zookeeper:3.7.1
     container_name: signoz-zookeeper-1
+    user: root
     volumes:
       - zookeeper-1:/bitnami/zookeeper
     environment:
@@ -93,15 +31,58 @@ services:
       - ZOO_AUTOPURGE_INTERVAL=1
       - ZOO_ENABLE_PROMETHEUS_METRICS=yes
       - ZOO_PROMETHEUS_METRICS_PORT_NUMBER=9141
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
 
   clickhouse:
-    <<: *clickhouse-defaults
+    image: clickhouse/clickhouse-server:25.5.6
     container_name: signoz-clickhouse
+    tty: true
     volumes:
       - clickhouse:/var/lib/clickhouse/
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+    depends_on:
+      init-clickhouse:
+        condition: service_completed_successfully
+      zookeeper-1:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - 0.0.0.0:8123/ping
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 262144
+        hard: 262144
+    restart: unless-stopped
+
+  schema-migrator-sync:
+    image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
+    container_name: schema-migrator-sync
+    command:
+      - sync
+      - --dsn=tcp://clickhouse:9000
+      - --up=
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: on-failure
 
   signoz:
-    <<: *db-depend
     image: signoz/signoz:${VERSION:-v0.96.1}
     container_name: signoz
     volumes:
@@ -115,6 +96,11 @@ services:
       - TELEMETRY_ENABLED=true
       - DEPLOYMENT_TYPE=docker-standalone-amd
       - DOT_METRICS_ENABLED=true
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      schema-migrator-sync:
+        condition: service_completed_successfully
     healthcheck:
       test:
         - CMD
@@ -125,9 +111,9 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    restart: unless-stopped
 
   otel-collector:
-    <<: *db-depend
     image: signoz/signoz-otel-collector:${OTELCOL_TAG:-v0.129.6}
     container_name: signoz-otel-collector
     environment:
@@ -136,28 +122,20 @@ services:
     depends_on:
       signoz:
         condition: service_healthy
-
-  schema-migrator-sync:
-    <<: *common
-    image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
-    container_name: schema-migrator-sync
-    command:
-      - sync
-      - --dsn=tcp://clickhouse:9000
-      - --up=
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-    restart: on-failure
+    restart: unless-stopped
 
   schema-migrator-async:
-    <<: *db-depend
     image: signoz/signoz-schema-migrator:${OTELCOL_TAG:-v0.129.6}
     container_name: schema-migrator-async
     command:
       - async
       - --dsn=tcp://clickhouse:9000
       - --up=
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      schema-migrator-sync:
+        condition: service_completed_successfully
     restart: on-failure
 
 volumes:
