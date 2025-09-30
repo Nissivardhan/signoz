@@ -99,6 +99,9 @@ services:
     container_name: signoz-clickhouse
     volumes:
       - clickhouse:/var/lib/clickhouse/
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+      - CLICKHOUSE_DB=default
 
   schema-migrator-sync:
     <<: *common
@@ -108,6 +111,7 @@ services:
       - sync
       - --dsn=tcp://clickhouse:9000
       - --dev
+      - --cluster-name=""
       - --up=
     depends_on:
       clickhouse:
@@ -161,6 +165,7 @@ services:
       - async
       - --dsn=tcp://clickhouse:9000
       - --dev
+      - --cluster-name=""
       - --up=
     restart: on-failure
     environment:
